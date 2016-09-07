@@ -75,7 +75,8 @@ outputs={'unprotectedC':zeros((nsteps,nbins,3)),
             'CO2':zeros((nsteps,nbins))
             }
 
-
+doy=T.index.dayofyear
+exudation_ts=cos((doy-0.67*365)*2*pi/365)+1
 
 for step in xrange(nsteps):
     if step%365==0:
@@ -88,7 +89,7 @@ for step in xrange(nsteps):
         outputs['microbeC'][step,cc]=cohorts[cc].livingMicrobeC
         outputs['CO2'][step,cc]=cohorts[cc].CO2
 
-        cohorts[cc].add_carbon((inputs+array([exudationrate[cc],0.0,0.0]))*dt)
+        cohorts[cc].add_carbon((inputs+array([exudationrate[cc],0.0,0.0]))*dt*exudation_ts[step%len(T)])
 
 
 # Plot results
@@ -107,8 +108,8 @@ if do_spinup:
     draw()
 
 else:
-    figure(1);clf()
-    subplot(211)
+    figure(1,figsize=(13.6,5.3));clf()
+    subplot(131)
     # plot(t,outputs['unprotectedC'][:,0,:].sum(axis=1),'b-',label='Unprotected')
     # plot(t,outputs['protectedC'][:,0,:].sum(axis=1),'r-',label='Protected')
     plot(t,outputs['unprotectedC'][:,0,0]*1e6,'-g',label='Fast')
@@ -123,17 +124,28 @@ else:
     plot(t,outputs['unprotectedC'][:,-1,0]*1e6,'--g',label='Fast')
     # plot(t,outputs['unprotectedC'][:,-1,1],'c-.',label='Slow')
     plot(t,outputs['unprotectedC'][:,-1,2]*1e6,'y--',label='Microbe necro')
-    plot(t,outputs['microbeC'][:,0-1]*1e6,'m--',label='Microbe')
+    plot(t,outputs['microbeC'][:,-1]*1e6,'m--',label='Microbe')
     # plot(t,outputs['unprotectedC'][:,0-1,:].sum(axis=1)+outputs['protectedC'][:,0-1,:].sum(axis=1),'k--',label='Total')
     xlabel('Time (years)')
     ylabel('Carbon content(mg/kg soil)')
+    title('Labile carbon pools')
 
-    subplot(212)
-    plot(log10(rootlength_bins/(srl.mean())*1e3),outputs['microbeC'][-140,:]*1e6,'bo-',label='August')
-    plot(log10(rootlength_bins/(srl.mean())*1e3),outputs['microbeC'][-201,:]*1e6,'go-',label='June')
-    xlabel('Log(root biomass [g/g soil])')
+    subplot(132)
+    plot(log10(rootlength_bins/(srl.mean())*1e3+1),outputs['microbeC'][-140,:]*1e6,'bo-',label='August')
+    plot(log10(rootlength_bins/(srl.mean())*1e3+1),outputs['microbeC'][-201,:]*1e6,'go-',label='June')
+    xlabel('Log(root biomass [g/g soil] + 1)')
     ylabel('Microbial biomass (mg/kg soil)')
+    title('Living microbial biomass')
     legend(loc='upper left',fontsize='medium')
+
+    subplot(133)
+    plot(log10(rootlength_bins/(srl.mean())*1e3+1),(outputs['unprotectedC'][-140,:,:].sum(axis=1)+outputs['protectedC'][-140,:,:].sum(axis=1))*1000,'bo-')
+    plot(log10(rootlength_bins/(srl.mean())*1e3+1),(outputs['unprotectedC'][-201,:,:].sum(axis=1)+outputs['protectedC'][-201,:,:].sum(axis=1))*1000,'go-')
+    xlabel('Log(root biomass [g/g soil] + 1)')
+    ylabel('Soil C (gC/kg soil)')
+    title('Exudation effect on soil C')
+
+    subplots_adjust(left=0.07,right=0.95,wspace=0.25)
 
     draw()
 
