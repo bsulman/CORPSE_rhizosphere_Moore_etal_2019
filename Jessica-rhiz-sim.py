@@ -20,15 +20,18 @@ dt=1.0/365 # Daily time step
 depth=5 #cm
 
 # Read daily temperature data for upland site
-datafile='../RDS-2005-0001_UTF8/UTF8/weather/dailyWeather.txt'
-weatherdata=pandas.read_csv(datafile,index_col=('date','watershed','position'),encoding='utf-8-sig',parse_dates=True)
-# Average daily temperature for watershed S2
-TS2=weatherdata.xs(('UP','S2'),level=('position','watershed'))['avgC']
-# Convert to K
-T = TS2 + 273.15
+# datafile='../RDS-2005-0001_UTF8/UTF8/weather/dailyWeather.txt'
+# weatherdata=pandas.read_csv(datafile,index_col=('date','watershed','position'),encoding='utf-8-sig',parse_dates=True)
+weatherdata=pandas.read_csv('../SPRUCE-data/EM123_Combined_public_data_2010_2015.csv',index_col='datetime',parse_dates=True,na_values=[-9999.0])
+soilT=weatherdata['EM1_Hummock10cm']+273.15
+soilmoisture=weatherdata['EM1_VW1_TopofHummock']
+soilmoisture[soilmoisture<0.0]=0.0
+soilmoisture=soilmoisture/soilmoisture.max()
 
 # Constant soil moisture for now
-theta=zeros(len(TS2))+0.7
+# theta=zeros(len(soilT))+0.7
+theta=soilmoisture.fillna(method='backfill').resample('1D')[365:]
+T=soilT.fillna(method='backfill').resample('1D')[365:]
 
 inputs = array([0.1,0.9,0.0])*2.0e-3 # gC/g soil/year
 
@@ -66,7 +69,7 @@ for ii in xrange(nbins):
 if do_spinup:
     nsteps=365*50
 else:
-    nsteps=365*2
+    nsteps=365*4
 
 
 outputs={'unprotectedC':zeros((nsteps,nbins,3)),
