@@ -14,6 +14,7 @@ params={
     'eup':[0.6,0.05,0.6], # Carbon uptake efficiency
     'tProtected':75.0,    # Protected C turnover time (years)
     'protection_rate':[0.75,0.00005,0.75], # Protected carbon formation rate (year-1)
+    'Resp_uses_total_C':False
 }
 
 dt=1.0/365 # Daily time step
@@ -74,6 +75,7 @@ else:
 
 outputs={'unprotectedC':zeros((nsteps,nbins,3)),
             'protectedC':zeros((nsteps,nbins,3)),
+            'decomp':zeros((nsteps,nbins,3)),
             'microbeC':zeros((nsteps,nbins)),
             'CO2':zeros((nsteps,nbins))
             }
@@ -88,6 +90,7 @@ for step in xrange(nsteps):
         out=cohorts[cc].update(T[step%len(T)],theta[step%len(T)],dt)
         cohorts[cc].check_validity()
         outputs['unprotectedC'][step,cc,:]=cohorts[cc].litterC
+        outputs['decomp'][step,cc,:]=out['decomp']
         outputs['protectedC'][step,cc,:]=cohorts[cc].protectedC
         outputs['microbeC'][step,cc]=cohorts[cc].livingMicrobeC
         outputs['CO2'][step,cc]=cohorts[cc].CO2
@@ -96,7 +99,7 @@ for step in xrange(nsteps):
 
 
 # Plot results
-t=arange(nsteps)/365.0
+t=T.index[:nsteps]
 
 if do_spinup:
     figure(1);clf()
@@ -111,8 +114,8 @@ if do_spinup:
     draw()
 
 else:
-    figure(1,figsize=(13.6,5.3));clf()
-    subplot(131)
+    figure(1);clf()
+    # subplot(131)
     # plot(t,outputs['unprotectedC'][:,0,:].sum(axis=1),'b-',label='Unprotected')
     # plot(t,outputs['protectedC'][:,0,:].sum(axis=1),'r-',label='Protected')
     plot(t,outputs['unprotectedC'][:,0,0]*1e6,'-g',label='Fast')
@@ -133,20 +136,35 @@ else:
     ylabel('Carbon content(mg/kg soil)')
     title('Labile carbon pools')
 
-    subplot(132)
-    plot(log10(rootlength_bins/(srl.mean())*1e3+1),outputs['microbeC'][-140,:]*1e6,'bo-',label='August')
-    plot(log10(rootlength_bins/(srl.mean())*1e3+1),outputs['microbeC'][-201,:]*1e6,'go-',label='June')
-    xlabel('Log(root biomass [g/g soil] + 1)')
+    draw()
+
+    figure(2,figsize=(13.6,5.3));clf()
+
+    timepoint=nonzero((t.week==25)&(t.year==2015))[0]
+
+    subplot(131)
+    plot(rootlength_bins,outputs['microbeC'][timepoint,:].mean(axis=0)*1e6,'go-',label='June')
+    xlabel('Root length (m/g soil)')
     ylabel('Microbial biomass (mg/kg soil)')
     title('Living microbial biomass')
-    legend(loc='upper left',fontsize='medium')
+    # legend(loc='upper left',fontsize='medium')
+
+    subplot(132)
+    zeropoint=outputs['decomp'][timepoint,0,0].mean(axis=0)/outputs['unprotectedC'][timepoint,0,0].mean(axis=0)
+    plot(rootlength_bins,outputs['decomp'][timepoint,:,0].mean(axis=0)/outputs['unprotectedC'][timepoint,:,0].mean(axis=0)/zeropoint*100-100,'go-',label='Labile')
+    zeropoint=outputs['decomp'][timepoint,0,1].mean(axis=0)/outputs['unprotectedC'][timepoint,0,1].mean(axis=0)
+    plot(rootlength_bins,outputs['decomp'][timepoint,:,1].mean(axis=0)/outputs['unprotectedC'][timepoint,:,1].mean(axis=0)/zeropoint*100-100,'bo-',label='Resistant')
+    xlabel('Root length (m/g soil)')
+    ylabel('Difference in decomposition rate (%)')
+    title('SOC turnover rate')
+    legend(loc='center right',fontsize='medium')
 
     subplot(133)
-    plot(log10(rootlength_bins/(srl.mean())*1e3+1),(outputs['unprotectedC'][-140,:,:].sum(axis=1)+outputs['protectedC'][-140,:,:].sum(axis=1))*1000,'bo-')
-    plot(log10(rootlength_bins/(srl.mean())*1e3+1),(outputs['unprotectedC'][-201,:,:].sum(axis=1)+outputs['protectedC'][-201,:,:].sum(axis=1))*1000,'go-')
-    xlabel('Log(root biomass [g/g soil] + 1)')
-    ylabel('Soil C (gC/kg soil)')
-    title('Exudation effect on soil C')
+    totalC=(outputs['unprotectedC'][timepoint,:,:].mean(axis=0).sum(axis=1)+outputs['protectedC'][timepoint,:,:].mean(axis=0).sum(axis=1))*1000
+    plot(rootlength_bins,totalC-totalC[0],'go-')
+    xlabel('Root length (m/g soil)')
+    ylabel('Difference in soil C (gC/kg soil)')
+    title('4-year difference in soil C')
 
     subplots_adjust(left=0.07,right=0.95,wspace=0.25)
 

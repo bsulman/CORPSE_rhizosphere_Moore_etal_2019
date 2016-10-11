@@ -58,7 +58,8 @@ class soil_carbon_cohort:
                  et=0.5;           Fraction of turnover not converted to CO2
                  eup=[0.6,0.05,0.6];  Carbon uptake efficiency
                  tProtected=75.0;     Protected C turnover time (years)
-                 protection_rate=[1.0,0.0,1.0];  Protected carbon formation rate (year-1)'''
+                 protection_rate=[1.0,0.0,1.0];  Protected carbon formation rate (year-1)
+                 Resp_uses_total_C=False;  Whether to normalize by total C or by each flavor in resp function'''
 
         from numpy import iterable,array
         self.params=params.copy()
@@ -176,8 +177,10 @@ class soil_carbon_cohort:
         if(sum(Ctotal)==0.0 or theta==0.0 or Chet==0.0):
             return Ctotal*0.0
 
-
-        Resp=self.Vmax(T)*theta**3.0*(Ctotal)*Chet/(sum(Ctotal)*self.params['kC']+Chet)*(1.0-theta)**self.params['gas_diffusion_exp'];
+        if self.params['Resp_uses_total_C']:
+            Resp=self.Vmax(T)*theta**3.0*(Ctotal)*Chet/(sum(Ctotal)*self.params['kC']+Chet)*(1.0-theta)**self.params['gas_diffusion_exp'];
+        else:
+            Resp=self.Vmax(T)*theta**3.0*(Ctotal)*Chet/((Ctotal)*self.params['kC']+Chet)*(1.0-theta)**self.params['gas_diffusion_exp'];
 
         return Resp
 
