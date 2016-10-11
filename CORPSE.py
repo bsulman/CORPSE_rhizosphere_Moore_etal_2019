@@ -174,7 +174,7 @@ class soil_carbon_cohort:
 
 
         if(sum(Ctotal)==0.0 or theta==0.0 or Chet==0.0):
-            return 0.0
+            return Ctotal*0.0
 
 
         Resp=self.Vmax(T)*theta**3.0*(Ctotal)*Chet/(sum(Ctotal)*self.params['kC']+Chet)*(1.0-theta)**self.params['gas_diffusion_exp'];
