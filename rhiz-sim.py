@@ -21,8 +21,7 @@ dt=1.0/365 # Daily time step
 depth=5 #cm
 
 # Read daily temperature data for upland site
-# datafile='../RDS-2005-0001_UTF8/UTF8/weather/dailyWeather.txt'
-# weatherdata=pandas.read_csv(datafile,index_col=('date','watershed','position'),encoding='utf-8-sig',parse_dates=True)
+## NOTE: Weather data downloaded from SPRUCE data repository: http://dx.doi.org/10.3334/CDIAC/spruce.001
 weatherdata=pandas.read_csv('../SPRUCE-data/EM123_Combined_public_data_2010_2015.csv',index_col='datetime',parse_dates=True,na_values=[-9999.0])
 soilT=weatherdata['EM1_Hummock10cm']+273.15
 soilmoisture=weatherdata['EM1_VW1_TopofHummock']
@@ -38,7 +37,7 @@ inputs = array([0.3,0.7,0.0])*0.0e-3 # gC/g soil/year
 # Observed soil C is 20 mg C/g soil
 
 # Calculate ranges of root density
-rootdata=pandas.read_excel('../All Site SEM data SULMAN with volume.xlsx')
+rootdata=pandas.read_excel('All Site SEM data SULMAN with volume.xlsx')
 bulkdensity=1.26 #g/cm3
 # rootdensity=0.1e-3 # g/cm3 soil
 rootdensity=rootdata['roots per volume']*1e-3 #g/cm3 of soil
