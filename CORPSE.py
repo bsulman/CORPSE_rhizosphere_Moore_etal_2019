@@ -226,7 +226,7 @@ class soil_carbon_cohort:
 
         # Check carbon conservation
         if abs(self.totalC()-self.originalC) > tolerance:
-            print self
+            print (self)
             raise RuntimeError('Cohort C conservation violated. Sum = %1.2d, Original = %1.2d'%(self.totalC(),self.originalC))
 
 

@@ -31,10 +31,10 @@ soilmoisture=soilmoisture/soilmoisture.max()
 
 # Constant soil moisture for now
 # theta=zeros(len(soilT))+0.7
-theta=soilmoisture.fillna(method='backfill').resample('1D')[365:]
-T=soilT.fillna(method='backfill').resample('1D')[365:]
+theta=soilmoisture.fillna(method='backfill').resample('1D').mean()[365:]
+T=soilT.fillna(method='backfill').resample('1D').mean()[365:]
 
-inputs = array([0.3,0.7,0.0])*1.5e-3 # gC/g soil/year
+inputs = array([0.3,0.7,0.0])*0.0e-3 # gC/g soil/year
 # Observed soil C is 20 mg C/g soil
 
 # Calculate ranges of root density
@@ -68,10 +68,14 @@ exudationrate=exudate_gC_gsoil_year # Phillips et al: 1 ugC/cm root length/hour
 
 # c=CORPSE.soil_carbon_cohort(litterC=[6e-05,0.012,9.6e-05], protectedC=[0.0037,4.2e-05,0.0054], livingMicrobeC=8.4e-05, params=params)
 c=CORPSE.soil_carbon_cohort(litterC=[0.0001,0.011,8.7e-05], protectedC=[0.0032,4.1e-05,0.0061], livingMicrobeC=0.00021, params=params)
+c2=c.copy()
+c2.params.update({'Resp_uses_total_C':True})
 
 cohorts=[]
-for ii in xrange(nbins):
+cohorts2=[]
+for ii in range(nbins):
     cohorts.append(c.copy())
+    cohorts2.append(c2.copy())
 
 if do_spinup:
     nsteps=365*50
@@ -85,14 +89,20 @@ outputs={'unprotectedC':zeros((nsteps,nbins,3)),
             'microbeC':zeros((nsteps,nbins)),
             'CO2':zeros((nsteps,nbins))
             }
+outputs2={'unprotectedC':zeros((nsteps,nbins,3)),
+            'protectedC':zeros((nsteps,nbins,3)),
+            'decomp':zeros((nsteps,nbins,3)),
+            'microbeC':zeros((nsteps,nbins)),
+            'CO2':zeros((nsteps,nbins))
+            }
 
 doy=T.index.dayofyear
 exudation_ts=cos((doy-0.67*365)*2*pi/365)+1
 
-for step in xrange(nsteps):
+for step in range(nsteps):
     if step%365==0:
-        print 'Year %d of %d'%(floor(step/365),floor(nsteps/365))
-    for cc in xrange(len(cohorts)):
+        print ('Year %d of %d'%(floor(step/365),floor(nsteps/365)))
+    for cc in range(len(cohorts)):
         out=cohorts[cc].update(T[step%len(T)],theta[step%len(T)],dt)
         cohorts[cc].check_validity()
         outputs['unprotectedC'][step,cc,:]=cohorts[cc].litterC
@@ -103,6 +113,15 @@ for step in xrange(nsteps):
 
         cohorts[cc].add_carbon((inputs+array([exudationrate[cc],0.0,0.0]))*dt*exudation_ts[step%len(T)])
 
+        out2=cohorts2[cc].update(T[step%len(T)],theta[step%len(T)],dt)
+        cohorts2[cc].check_validity()
+        outputs2['unprotectedC'][step,cc,:]=cohorts2[cc].litterC
+        outputs2['decomp'][step,cc,:]=out2['decomp']
+        outputs2['protectedC'][step,cc,:]=cohorts2[cc].protectedC
+        outputs2['microbeC'][step,cc]=cohorts2[cc].livingMicrobeC
+        outputs2['CO2'][step,cc]=cohorts2[cc].CO2
+
+        cohorts2[cc].add_carbon((inputs+array([exudationrate[cc],0.0,0.0]))*dt*exudation_ts[step%len(T)])
 
 # Plot results
 
@@ -110,6 +129,7 @@ for step in xrange(nsteps):
 if do_spinup:
     t=arange(nsteps)/365.0
     figure(1);clf()
+    subplot(211)
     plot(t,outputs['unprotectedC'][:,0,:].sum(axis=1),'b-',label='Unprotected')
     plot(t,outputs['protectedC'][:,0,:].sum(axis=1),'r-',label='Protected')
     plot(t,outputs['unprotectedC'][:,0,0],':g',label='Fast')
@@ -120,29 +140,47 @@ if do_spinup:
     legend(loc='best',fontsize='medium')
     draw()
 
+    subplot(212)
+    plot(t,outputs2['unprotectedC'][:,0,:].sum(axis=1),'b-',label='Unprotected')
+    plot(t,outputs2['protectedC'][:,0,:].sum(axis=1),'r-',label='Protected')
+    plot(t,outputs2['unprotectedC'][:,0,0],':g',label='Fast')
+    plot(t,outputs2['unprotectedC'][:,0,1],'b:',label='Slow')
+    plot(t,outputs2['unprotectedC'][:,0,2],'r:',label='Microbe necro')
+    plot(t,outputs2['microbeC'][:,0],'m-',label='Microbe')
+    plot(t,outputs2['unprotectedC'][:,0,:].sum(axis=1)+outputs2['protectedC'][:,0,:].sum(axis=1),'k-',label='Total')
+
 else:
     t=T.index[:nsteps]
     figure(1);clf()
     # subplot(131)
-    plot(t,outputs['unprotectedC'][:,5,:].sum(axis=1)*1e3,'b-',label='Unprotected')
+    lowpoint=0
+    plot(t,outputs['unprotectedC'][:,lowpoint,:].sum(axis=1)*1e3,'b-',label='Unprotected')
     # plot(t,outputs['protectedC'][:,0,:].sum(axis=1),'r-',label='Protected')
-    plot(t,outputs['unprotectedC'][:,5,0]*1e3,'-g',label='Fast')
+    plot(t,outputs['unprotectedC'][:,lowpoint,0]*1e3,'-g',label='Fast')
     # plot(t,outputs['unprotectedC'][:,0,1],'c:',label='Slow')
-    plot(t,outputs['unprotectedC'][:,5,2]*1e3,'y-',label='Dead microbe')
-    plot(t,outputs['microbeC'][:,0]*1e3,'m-',label='Live microbe')
+    plot(t,outputs['unprotectedC'][:,lowpoint,2]*1e3,'y-',label='Dead microbe')
+    plot(t,outputs['microbeC'][:,lowpoint]*1e3,'m-',label='Live microbe')
     # plot(t,outputs['unprotectedC'][:,0,:].sum(axis=1)+outputs['protectedC'][:,0,:].sum(axis=1),'k-',label='Total')
     leg=legend(loc='best',fontsize='medium');leg.get_frame().set_alpha(0.5)
 
-    plot(t,outputs['unprotectedC'][:,-1,:].sum(axis=1),'b--',label='Unprotected')
+    highpoint=4
+    plot(t,outputs['unprotectedC'][:,highpoint,:].sum(axis=1)*1e3,'b--',label='Unprotected')
     # plot(t,outputs['protectedC'][:,-1,:].sum(axis=1),'r--',label='Protected')
-    plot(t,outputs['unprotectedC'][:,-1,0]*1e3,'--g',label='Fast')
+    plot(t,outputs['unprotectedC'][:,highpoint,0]*1e3,'--g',label='Fast')
     # plot(t,outputs['unprotectedC'][:,-1,1],'c-.',label='Slow')
-    plot(t,outputs['unprotectedC'][:,-1,2]*1e3,'y--',label='Microbe necro')
-    plot(t,outputs['microbeC'][:,-1]*1e3,'m--',label='Microbe')
+    plot(t,outputs['unprotectedC'][:,highpoint,2]*1e3,'y--',label='Microbe necro')
+    plot(t,outputs['microbeC'][:,highpoint]*1e3,'m--',label='Microbe')
     # plot(t,outputs['unprotectedC'][:,0-1,:].sum(axis=1)+outputs['protectedC'][:,0-1,:].sum(axis=1),'k--',label='Total')
     xlabel('Time (years)')
     ylabel('Carbon content(mgC/g soil)')
     title('Labile carbon pools')
+
+    plot(t,outputs2['unprotectedC'][:,highpoint,:].sum(axis=1)*1e3,'b:')
+    # plot(t,outputs['protectedC'][:,0,:].sum(axis=1),'r-',label='Protected')
+    plot(t,outputs2['unprotectedC'][:,highpoint,0]*1e3,':g')
+    # plot(t,outputs['unprotectedC'][:,0,1],'c:',label='Slow')
+    plot(t,outputs2['unprotectedC'][:,highpoint,2]*1e3,'y:')
+    plot(t,outputs2['microbeC'][:,highpoint]*1e3,'m:')
 
     draw()
 
@@ -153,25 +191,41 @@ else:
 
     subplot(122)
     semilogx(rootlength_bins*1e3,outputs['microbeC'][timepoint,:].mean(axis=0)*1e6,'ko-',label='June')
+    semilogx(rootlength_bins*1e3,outputs2['microbeC'][timepoint,:].mean(axis=0)*1e6,'k^--')
     xlabel('Root density (mm g soil$^{-1}$)')
     ylabel('Microbial biomass (mg C kg soil$^{-1}$)')
     title('Living microbial biomass')
     # gca().set_ylim(bottom=-0.1,top=200)
     # legend(loc='upper left',fontsize='medium')
 
-    data_out=pandas.DataFrame({'Microbial biomass (mgC/kgsoil)':outputs['microbeC'][timepoint,:].mean(axis=0)*1e6,'rootdensity (mm/gsoil)':rootlength_bins*1e3})
+    data_out=pandas.DataFrame({'H2 Microbial biomass (mgC/kgsoil)':outputs['microbeC'][timepoint,:].mean(axis=0)*1e6,
+        'H1 Microbial biomass (mgC/kgsoil)':outputs2['microbeC'][timepoint,:].mean(axis=0)*1e6,
+        'rootdensity (mm/gsoil)':rootlength_bins*1e3})
 
     subplot(121)
     zeropoint=outputs['decomp'][timepoint,0,0].mean(axis=0)/outputs['unprotectedC'][timepoint,0,0].mean(axis=0)
-    semilogx(rootlength_bins*1e3,outputs['decomp'][timepoint,:,0].mean(axis=0)/outputs['unprotectedC'][timepoint,:,0].mean(axis=0)/zeropoint*100-100,'go-',label='Labile')
-    data_out['Labile Decomp difference (%)']=outputs['decomp'][timepoint,:,0].mean(axis=0)/outputs['unprotectedC'][timepoint,:,0].mean(axis=0)/zeropoint*100-100.
+    zeropoint=1.0
+    semilogx(rootlength_bins*1e3,outputs['decomp'][timepoint,:,0].mean(axis=0)/outputs['unprotectedC'][timepoint,:,0].mean(axis=0)/10,'go-',label='Labile*0.1')
+    data_out['H2 Labile Decomp rate (year-1)']=outputs['decomp'][timepoint,:,0].mean(axis=0)/outputs['unprotectedC'][timepoint,:,0].mean(axis=0)
 
     zeropoint=outputs['decomp'][timepoint,0,1].mean(axis=0)/outputs['unprotectedC'][timepoint,0,1].mean(axis=0)
-    semilogx(rootlength_bins*1e3,outputs['decomp'][timepoint,:,1].mean(axis=0)/outputs['unprotectedC'][timepoint,:,1].mean(axis=0)/zeropoint*100-100,'bo-',label='Resistant')
-    data_out['Resistant Decomp difference (%)']=outputs['decomp'][timepoint,:,1].mean(axis=0)/outputs['unprotectedC'][timepoint,:,1].mean(axis=0)/zeropoint*100-100
+    zeropoint=1.0
+    semilogx(rootlength_bins*1e3,outputs['decomp'][timepoint,:,1].mean(axis=0)/outputs['unprotectedC'][timepoint,:,1].mean(axis=0),'bo-',label='Resistant')
+    data_out['H2 Resistant Decomp rate (year-1)']=outputs['decomp'][timepoint,:,1].mean(axis=0)/outputs['unprotectedC'][timepoint,:,1].mean(axis=0)
+
+    zeropoint=outputs2['decomp'][timepoint,0,0].mean(axis=0)/outputs2['unprotectedC'][timepoint,0,0].mean(axis=0)
+    zeropoint=1.0
+    semilogx(rootlength_bins*1e3,outputs2['decomp'][timepoint,:,0].mean(axis=0)/outputs2['unprotectedC'][timepoint,:,0].mean(axis=0)/10,'g^--')
+    data_out['H1 Labile Decomp rate (year-1)']=outputs2['decomp'][timepoint,:,0].mean(axis=0)/outputs2['unprotectedC'][timepoint,:,0].mean(axis=0)
+
+    zeropoint=outputs2['decomp'][timepoint,0,1].mean(axis=0)/outputs2['unprotectedC'][timepoint,0,1].mean(axis=0)
+    zeropoint=1.0
+    semilogx(rootlength_bins*1e3,outputs2['decomp'][timepoint,:,1].mean(axis=0)/outputs2['unprotectedC'][timepoint,:,1].mean(axis=0),'b^--')
+    data_out['H1 Resistant Decomp rate (year-1)']=outputs2['decomp'][timepoint,:,1].mean(axis=0)/outputs2['unprotectedC'][timepoint,:,1].mean(axis=0)
+
 
     xlabel('Root density (mm g soil$^{-1}$)')
-    ylabel('Difference in decomposition rate (%)')
+    ylabel('Decomposition rate (year$^{-1}$)')
     title('SOC turnover rate')
     legend(fontsize='medium')
     # ylim(-.5,20.2)
@@ -186,6 +240,8 @@ else:
     subplot(111)
     totalC=(outputs['unprotectedC'][timepoint,:,:].mean(axis=0).sum(axis=1)+outputs['protectedC'][timepoint,:,:].mean(axis=0).sum(axis=1))*1000
     plot(rootlength_bins,totalC-totalC[0],'go-')
+    totalC2=(outputs2['unprotectedC'][timepoint,:,:].mean(axis=0).sum(axis=1)+outputs2['protectedC'][timepoint,:,:].mean(axis=0).sum(axis=1))*1000
+    plot(rootlength_bins,totalC2-totalC2[0],'go--')
     xlabel('Root length (m/g soil)')
     ylabel('Difference in soil C (mgC/g soil)')
     title('4-year difference in soil C')
