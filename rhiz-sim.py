@@ -28,22 +28,21 @@ soilmoisture=weatherdata['EM1_VW1_TopofHummock']
 soilmoisture[soilmoisture<0.0]=0.0
 soilmoisture=soilmoisture/soilmoisture.max()
 
-# Constant soil moisture for now
-# theta=zeros(len(soilT))+0.7
+# Soil moisture from observations
 theta=soilmoisture.fillna(method='backfill').resample('1D').mean()[365:]
 T=soilT.fillna(method='backfill').resample('1D').mean()[365:]
 
+# After spinup, run with no fresh inputs
 inputs = array([0.3,0.7,0.0])*0.0e-3 # gC/g soil/year
-# Observed soil C is 20 mg C/g soil
 
 # Calculate ranges of root density
 rootdata=pandas.read_excel('All Site SEM data SULMAN with volume.xlsx')
 bulkdensity=1.26 #g/cm3
-# rootdensity=0.1e-3 # g/cm3 soil
+
 rootdensity=rootdata['roots per volume']*1e-3 #g/cm3 of soil
 rootdensity[rootdensity<0]=nan
 rootmass=rootdata['roots']*1e-3 # g roots/g soil
-# srl=40.0      # m/g
+
 srl=rootdata['SRL (m g-1)'].fillna(rootdata['SRL (m g-1)'].mean()) # m/g root
 rootlength = rootmass*srl # m root/g soil
 exudationrate=rootlength*100*1e-6*24*365/1000.0 # Phillips et al: 1 ugC/cm root length/hour
